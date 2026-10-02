@@ -74,11 +74,11 @@ def test_search_tool_tool_call_gives_tool_message() -> None:
 
 @respx.mock
 async def test_search_tool_async_and_wrapper_defaults() -> None:
-    route = respx.post(f"{BASE}/v1/ai-mode").mock(
+    route = respx.post(f"{BASE}/v1/scholar").mock(
         return_value=httpx.Response(200, text="Answer", headers={"content-type": "text/markdown"})
     )
     wrapper = SerpKiteAPIWrapper(api_key="skt_live_w", country="fr", language="fr")
-    tool = SerpKiteSearch(api_wrapper=wrapper, endpoint="ai_mode")
+    tool = SerpKiteSearch(api_wrapper=wrapper, endpoint="scholar")
     assert await tool.ainvoke({"query": "q", "language": "en"}) == "Answer"
     req = route.calls.last.request
     assert req.headers["authorization"] == "Bearer skt_live_w"

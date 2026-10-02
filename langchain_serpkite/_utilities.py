@@ -23,13 +23,12 @@ VERTICALS = frozenset(
         "scholar",
         "patents",
         "autocomplete",
-        "ai-mode",
     }
 )
 
 
 def normalize_endpoint(endpoint: str) -> str:
-    ep = endpoint.strip().lower().replace("_", "-")
+    ep = endpoint.strip().lower()
     if ep not in VERTICALS:
         raise ValueError(f"unknown SerpKite endpoint {endpoint!r}; use one of {', '.join(sorted(VERTICALS))}")
     return ep

@@ -29,7 +29,6 @@ def search_body(n: int = 10, *, content_for: int = 0) -> dict[str, Any]:
     return {
         "request": {"endpoint": "search", "engine": "google"},
         "results": organic(n, content_for=content_for),
-        "ai_overview": None,
         "related_searches": [],
         "meta": meta(),
     }

@@ -29,7 +29,7 @@ search = SerpKiteSearch()  # optional: endpoint="news", country="de", num=20, ap
 print(search.invoke({"query": "best espresso machine"}))  # Markdown string
 
 papers = SerpKiteSearch(endpoint="scholar")  # or news, images, videos, maps, places,
-                                             # shopping, patents, autocomplete, ai-mode
+                                             # shopping, patents, autocomplete
 rows = SerpKiteSearchResults(max_results=5).invoke({"query": "langgraph checkpointer"})
 # [{"position": 1, "title": "...", "link": "https://...", "domain": "...", "snippet": "..."}, ...]
 ```

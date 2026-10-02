@@ -40,8 +40,8 @@ class _SerpKiteTool(BaseTool):
     api_wrapper: SerpKiteAPIWrapper = Field(default_factory=SerpKiteAPIWrapper)
     """Holds the API key and HTTP clients (``SERPKITE_API_KEY`` by default)."""
     endpoint: str = "search"
-    """Vertical to query: search, news, images, videos, maps, places, shopping, scholar, patents,
-    autocomplete or ai-mode."""
+    """Vertical to query: search, news, images, videos, maps, places, shopping, scholar, patents
+    or autocomplete."""
     country: Optional[str] = None
     """Default country when the model doesn't pass one."""
     language: Optional[str] = None
@@ -106,7 +106,7 @@ class SerpKiteSearch(_SerpKiteTool):
 
     name: str = "serpkite_search"
     description: str = (
-        "Search Google and get the top results (titles, links, snippets, AI Overview, answer box) "
+        "Search Google and get the top results (titles, links, snippets, answer box) "
         "as Markdown. Use it for current events, facts you are unsure about and finding sources. "
         "Input is a search query."
     )
