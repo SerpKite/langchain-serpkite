@@ -1,0 +1,38 @@
+# Mirrored from the SerpKite monorepo (sdks/langchain-serpkite); edits here are overwritten.
+# The monorepo's sdk-mirror workflow pushes tag vX.Y.Z here; this publishes PyPI `langchain-serpkite`.
+# The serpkite version it requires must already be on PyPI.
+name: release
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    # PyPI trusted publisher: repo SerpKite/langchain-serpkite, workflow release.yml, environment pypi.
+    environment: pypi
+    permissions:
+      contents: write # GitHub release
+      id-token: write # PyPI trusted publishing
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+      - name: Tag matches pyproject
+        env:
+          TAG: ${{ github.ref_name }}
+        run: test "${TAG#v}" = "$(uv version --short)"
+      - run: uv sync --no-sources && uv run --no-sources pytest -q
+      - run: uv build --no-sources --out-dir dist
+      - uses: pypa/gh-action-pypi-publish@release/v1
+      - name: GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: gh release create "$TAG" --verify-tag --generate-notes --title "$TAG" dist/*

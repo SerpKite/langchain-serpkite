@@ -1,0 +1,22 @@
+# Mirrored from the SerpKite monorepo (sdks/langchain-serpkite); edits here are overwritten.
+# --no-sources: serpkite comes from PyPI here (the monorepo uses its ../python checkout).
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+      - run: uv sync --no-sources
+      - run: uv run --no-sources ruff check .
+      - run: uv run --no-sources ruff format --check .
+      - run: uv run --no-sources mypy
+      - run: uv run --no-sources pytest -q

@@ -1,0 +1,75 @@
+[project]
+name = "langchain-serpkite"
+version = "0.1.0"
+description = "LangChain integration for SerpKite, the Google search API built for AI agents: tools, a retriever and a webpage loader."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.9"
+authors = [{ name = "SerpKite", email = "support@serpkite.com" }]
+keywords = ["langchain", "serpkite", "google", "search", "serp", "retriever", "tool", "agents", "llm"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Topic :: Internet :: WWW/HTTP :: Indexing/Search",
+  "Typing :: Typed",
+]
+dependencies = [
+  "langchain-core>=0.3,<2",
+  "serpkite>=0.1.0",
+]
+
+[project.urls]
+Homepage = "https://serpkite.com/integrations/langchain"
+Documentation = "https://serpkite.com/docs/sdks/langchain"
+Repository = "https://github.com/serpkite/langchain-serpkite"
+
+[dependency-groups]
+dev = [
+  "pytest>=8",
+  "pytest-asyncio>=0.23",
+  "pytest-socket>=0.7",
+  "respx>=0.21",
+  "ruff>=0.6",
+  "mypy>=1.10",
+  "langchain-tests>=0.3; python_version >= '3.10'",
+]
+
+[tool.uv.sources]
+serpkite = { path = "../python", editable = true }
+
+[build-system]
+requires = ["hatchling>=1.26"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["langchain_serpkite"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests/unit_tests"]
+asyncio_mode = "auto"
+# Unit tests must not touch the network (respx intercepts httpx before any socket).
+addopts = "--disable-socket --allow-unix-socket"
+markers = ["requires: mark tests as requiring a specific library", "compile: mark placeholder test used to compile integration tests without running them"]
+
+[tool.ruff]
+target-version = "py39"
+line-length = 110
+extend-exclude = ["*.md"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF"]
+ignore = ["UP006", "UP007", "UP035", "UP045"]
+
+[tool.mypy]
+strict = true
+files = ["langchain_serpkite", "tests"]
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = ["langchain_tests", "langchain_tests.*"]
+ignore_missing_imports = true
