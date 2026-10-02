@@ -1,6 +1,6 @@
 [project]
 name = "langchain-serpkite"
-version = "0.2.0"
+version = "0.2.1"
 description = "LangChain integration for SerpKite, the Google search API built for AI agents: tools, a retriever and a webpage loader."
 readme = "README.md"
 license = "MIT"
@@ -20,7 +20,7 @@ classifiers = [
 ]
 dependencies = [
   "langchain-core>=0.3,<2",
-  "serpkite>=0.1.0",
+  "serpkite>=0.2.0",
 ]
 
 [project.urls]

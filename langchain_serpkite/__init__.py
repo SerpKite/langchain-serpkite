@@ -10,7 +10,7 @@ from langchain_serpkite.tools import SerpKiteSearch, SerpKiteSearchInput, SerpKi
 try:
     __version__ = metadata.version(__package__ or __name__)
 except metadata.PackageNotFoundError:  # pragma: no cover - source checkout without install
-    __version__ = "0.2.0"
+    __version__ = "0.2.1"
 del metadata
 
 __all__ = [
