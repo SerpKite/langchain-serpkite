@@ -113,7 +113,7 @@ docs[0].metadata["engine"]                                      # "google", or e
 ```
 
 - `engine` is `"google"` (default), `"auto"`, `"consensus"`, one provider (`"brave"`, `"bing"`,
-  `"yahoo"`, `"duckduckgo"`, `"mojeek"`, `"wikipedia"`) or a list. `"auto"` and `"consensus"` can't be combined
+  `"yahoo"`, `"duckduckgo"`, `"mojeek"`, `"wikipedia"`, `"yandex"`) or a list. `"auto"` and `"consensus"` can't be combined
   with other names; unknown names, or a provider that doesn't serve the endpoint, raise
   `serpkite.BadRequestError`.
 - The retriever puts the answering provider (`meta.engine`) into each Document's `metadata["engine"]`.
