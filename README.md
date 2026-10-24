@@ -7,6 +7,8 @@ agents. The package gives you:
 | --- | --- |
 | `SerpKiteSearch` | Tool (`serpkite_search`) that returns Markdown, which uses few tokens, for agents |
 | `SerpKiteSearchResults` | Tool (`serpkite_search_results_json`) that returns a list of result dicts (title, link, domain, snippet, …) |
+| `SerpKiteAnswer` | Tool (`serpkite_answer`) that returns a cited answer from live Google results, with the numbered sources |
+| `SerpKiteResearch` | Tool (`serpkite_research`) that runs a deep-research task and returns its cited Markdown report |
 | `SerpKiteRetriever` | Retriever that returns Google results as `Document`s, optionally with full page Markdown |
 | `SerpKiteWebpageLoader` | Document loader that fetches any public URL as clean Markdown |
 | `SerpKiteAPIWrapper` | Holds the API key and the sync and async SerpKite clients |
@@ -38,6 +40,34 @@ The model can set `query`, `num`, `country`, `language` and `time`
 (`hour|day|week|month|year`). Defaults set on the tool (`country=`, `language=`, `location=`,
 `num=`) apply when the model leaves a field out. `engine=` is set on the tool only (see
 [Search engines & fallback](#search-engines--fallback)).
+
+## Cited answers and research
+
+```python
+from langchain_serpkite import SerpKiteAnswer, SerpKiteResearch
+
+answer = SerpKiteAnswer(depth="fast")  # "standard" (default) also reads the top num_sources pages
+print(answer.invoke({"query": "what is the latest stable rust version"}))
+# The latest stable Rust release is … [1].
+#
+# Sources:
+# [1] Rust blog - https://blog.rust-lang.org/...
+
+research = SerpKiteResearch(effort="lite")  # lite | standard (default) | deep
+print(research.invoke({"query": "compare managed Postgres vector search options"}))
+```
+
+- Both tools use `response_format="content_and_artifact"`: called with a tool call, the
+  `ToolMessage.artifact` is the full `serpkite.types.AnswerResponse` / `ResearchTask` (citations,
+  sources, `meta.credits`, `meta.llm`).
+- `SerpKiteAnswer` takes `depth`, `num_sources` (1-5), `include_domains`, `exclude_domains`,
+  `country`, `language` and `time` on the tool; the model only sets `query`.
+- `SerpKiteResearch` starts the task and waits for the report (one to several minutes, up to
+  `timeout=900` seconds). If the wait runs out it returns the task's state; the task keeps running
+  server-side. `effort` sets how much is searched and read.
+- When the model fails, `SerpKiteAnswer` raises `serpkite.APIError` with code `ai_unavailable`
+  and `SerpKiteResearch` returns the failed task's error; neither is charged for the model part.
+  Prices: [serpkite.com/pricing](https://serpkite.com/pricing).
 
 ## Agent (LangChain / LangGraph)
 

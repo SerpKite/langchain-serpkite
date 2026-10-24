@@ -7,10 +7,19 @@ from typing import Any, Literal, Optional, Union
 from langchain_core.callbacks import AsyncCallbackManagerForToolRun, CallbackManagerForToolRun
 from langchain_core.tools import BaseTool
 from pydantic import BaseModel, Field, field_validator, model_validator
+from serpkite.types import AnswerResponse, ResearchTask
 
 from ._utilities import SerpKiteAPIWrapper, normalize_endpoint
 
-__all__ = ["SerpKiteSearch", "SerpKiteSearchInput", "SerpKiteSearchResults"]
+__all__ = [
+    "SerpKiteAnswer",
+    "SerpKiteAnswerInput",
+    "SerpKiteResearch",
+    "SerpKiteResearchInput",
+    "SerpKiteSearch",
+    "SerpKiteSearchInput",
+    "SerpKiteSearchResults",
+]
 
 
 class SerpKiteSearchInput(BaseModel):
@@ -189,3 +198,200 @@ class SerpKiteSearchResults(_SerpKiteTool):
     ) -> list[dict[str, Any]]:
         params = self._params(num, country, language, time)
         return self._shape(await self.api_wrapper.araw(query, self.endpoint, **params))
+
+
+# ── AI: answer and research ────────────────────────────────────────────────
+
+
+class SerpKiteAnswerInput(BaseModel):
+    """Input for :class:`SerpKiteAnswer`."""
+
+    query: str = Field(description="The question to answer from live Google results.")
+
+
+def _with_sources(text: Optional[str], citations: list[Any], empty: str) -> str:
+    """The text followed by its numbered sources."""
+    lines = [text or empty]
+    if citations:
+        lines += ["", "Sources:"]
+        lines += [f"[{c.index}] {c.title} - {c.link}" for c in citations]
+    return "\n".join(lines)
+
+
+def format_answer(res: AnswerResponse) -> str:
+    """The answer (Markdown with ``[n]`` markers) followed by its numbered sources."""
+    return _with_sources(res.answer, res.citations, "No answer could be found in the search results.")
+
+
+class SerpKiteAnswer(BaseTool):
+    """A cited answer grounded on live Google results, via SerpKite ``/v1/answer``.
+
+    Returns the answer (Markdown with ``[n]`` citation markers) followed by the numbered
+    sources. ``depth="fast"`` answers from the result page; ``"standard"`` (default) also reads
+    the top ``num_sources`` pages (prices: https://serpkite.com/pricing). ``response_format`` is
+    ``content_and_artifact``: the artifact is the full :class:`serpkite.types.AnswerResponse`
+    (citations, results, ``meta.credits``, ``meta.llm``).
+
+    Setup:
+        .. code-block:: bash
+
+            pip install -U langchain-serpkite
+            export SERPKITE_API_KEY="skt_live_..."
+
+    Instantiate:
+        .. code-block:: python
+
+            from langchain_serpkite import SerpKiteAnswer
+
+            tool = SerpKiteAnswer(depth="fast")
+
+    Invoke:
+        .. code-block:: python
+
+            tool.invoke({"query": "what is the latest stable rust version"})
+    """
+
+    name: str = "serpkite_answer"
+    description: str = (
+        "Answer a question from live Google results. Returns a concise answer with [n] citations "
+        "followed by the numbered source links. Use it for current facts that need sources. "
+        "Input is a question."
+    )
+    args_schema: type[BaseModel] = SerpKiteAnswerInput
+    response_format: Literal["content", "content_and_artifact"] = "content_and_artifact"
+
+    api_wrapper: SerpKiteAPIWrapper = Field(default_factory=SerpKiteAPIWrapper)
+    """Holds the API key and HTTP clients (``SERPKITE_API_KEY`` by default)."""
+    depth: Literal["fast", "standard"] = "standard"
+    num_sources: Optional[int] = Field(default=None, ge=1, le=5)
+    """Pages read with ``depth="standard"`` (1-5, server default 3)."""
+    include_domains: Optional[list[str]] = None
+    exclude_domains: Optional[list[str]] = None
+    country: Optional[str] = None
+    """Defaults to ``api_wrapper.country``."""
+    language: Optional[str] = None
+    time: Optional[Literal["hour", "day", "week", "month", "year"]] = None
+    """Only answer from results of the last hour, day, week, month or year."""
+
+    @model_validator(mode="before")
+    @classmethod
+    def _build_wrapper(cls, values: Any) -> Any:
+        return _wrapper_from_kwargs(values)
+
+    def _params(self) -> dict[str, Any]:
+        return {
+            "depth": self.depth,
+            "num_sources": self.num_sources if self.depth == "standard" else None,
+            "include_domains": self.include_domains,
+            "exclude_domains": self.exclude_domains,
+            "country": self.country,
+            "language": self.language,
+            "time": self.time,
+        }
+
+    def _run(
+        self, query: str, run_manager: Optional[CallbackManagerForToolRun] = None
+    ) -> tuple[str, AnswerResponse]:
+        res = self.api_wrapper.answer(query, **self._params())
+        return format_answer(res), res
+
+    async def _arun(
+        self, query: str, run_manager: Optional[AsyncCallbackManagerForToolRun] = None
+    ) -> tuple[str, AnswerResponse]:
+        res = await self.api_wrapper.aanswer(query, **self._params())
+        return format_answer(res), res
+
+
+class SerpKiteResearchInput(BaseModel):
+    """Input for :class:`SerpKiteResearch`."""
+
+    query: str = Field(description="The research task or question, in plain words.")
+
+
+def format_research(task: ResearchTask) -> str:
+    """The report followed by its numbered sources, or the task's state when it has none."""
+    result = task.result
+    report = getattr(result, "report", None) if result is not None else None
+    if task.status == "completed" and report:
+        return _with_sources(report, list(getattr(result, "citations", None) or []), "")
+    if task.error is not None:
+        return f"Research {task.status}: {task.error.code}: {task.error.message}"
+    return f"Research {task.id} is {task.status}; check again later."
+
+
+class SerpKiteResearch(BaseTool):
+    """Deep research via SerpKite ``/v1/research``: planned Google searches, page reading and a
+    cited Markdown report.
+
+    The tool starts the task and waits for the report (one to several minutes, up to
+    ``timeout`` seconds), then returns it followed by the numbered sources. ``effort`` (``lite``,
+    ``standard``, ``deep``) sets how much is searched and read, at a flat price per task charged
+    only when the report is written (https://serpkite.com/pricing). ``response_format`` is
+    ``content_and_artifact``: the artifact is the :class:`serpkite.types.ResearchTask`.
+
+    Instantiate:
+        .. code-block:: python
+
+            from langchain_serpkite import SerpKiteResearch
+
+            tool = SerpKiteResearch(effort="lite")
+
+    Invoke:
+        .. code-block:: python
+
+            tool.invoke({"query": "compare managed Postgres vector search options"})
+    """
+
+    name: str = "serpkite_research"
+    description: str = (
+        "Research a question in depth: plans several Google searches, reads the sources and "
+        "writes a Markdown report with [n] citations, followed by the numbered source links. "
+        "Takes one to several minutes; use serpkite_answer for quick facts. Input is the research "
+        "task in plain words."
+    )
+    args_schema: type[BaseModel] = SerpKiteResearchInput
+    response_format: Literal["content", "content_and_artifact"] = "content_and_artifact"
+
+    api_wrapper: SerpKiteAPIWrapper = Field(default_factory=SerpKiteAPIWrapper)
+    effort: Literal["lite", "standard", "deep"] = "standard"
+    include_domains: Optional[list[str]] = None
+    exclude_domains: Optional[list[str]] = None
+    country: Optional[str] = None
+    language: Optional[str] = None
+    timeout: float = 900.0
+    """Seconds to wait for the report; the tool then returns the task's state (it keeps running
+    server-side)."""
+
+    @model_validator(mode="before")
+    @classmethod
+    def _build_wrapper(cls, values: Any) -> Any:
+        return _wrapper_from_kwargs(values)
+
+    def _params(self) -> dict[str, Any]:
+        return {
+            "effort": self.effort,
+            "include_domains": self.include_domains,
+            "exclude_domains": self.exclude_domains,
+            "country": self.country,
+            "language": self.language,
+        }
+
+    def _run(
+        self, query: str, run_manager: Optional[CallbackManagerForToolRun] = None
+    ) -> tuple[str, ResearchTask]:
+        task = self.api_wrapper.research(query, **self._params())
+        try:
+            done = self.api_wrapper.wait_research(str(task.id), timeout=self.timeout)
+        except TimeoutError:
+            done = self.api_wrapper.get_research(str(task.id))
+        return format_research(done), done
+
+    async def _arun(
+        self, query: str, run_manager: Optional[AsyncCallbackManagerForToolRun] = None
+    ) -> tuple[str, ResearchTask]:
+        task = await self.api_wrapper.aresearch(query, **self._params())
+        try:
+            done = await self.api_wrapper.await_research(str(task.id), timeout=self.timeout)
+        except TimeoutError:
+            done = await self.api_wrapper.aget_research(str(task.id))
+        return format_research(done), done

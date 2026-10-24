@@ -2,6 +2,10 @@ from langchain_serpkite import __all__
 
 EXPECTED_ALL = [
     "SerpKiteAPIWrapper",
+    "SerpKiteAnswer",
+    "SerpKiteAnswerInput",
+    "SerpKiteResearch",
+    "SerpKiteResearchInput",
     "SerpKiteRetriever",
     "SerpKiteSearch",
     "SerpKiteSearchInput",

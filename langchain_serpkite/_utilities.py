@@ -7,7 +7,7 @@ from typing import Any, Optional, Union
 from langchain_core.utils import secret_from_env
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, SecretStr
 from serpkite import AsyncSerpKite, SerpKite
-from serpkite.types import SearchResponse, WebpageResponse
+from serpkite.types import AnswerResponse, ResearchTask, SearchResponse, TaskCreated, WebpageResponse
 
 __all__ = ["SerpKiteAPIWrapper"]
 
@@ -133,6 +133,27 @@ class SerpKiteAPIWrapper(BaseModel):
         """Typed ``/v1/webpage`` call."""
         return self.client.webpage(url, include_html=include_html)
 
+    def _defaults(self, params: dict[str, Any], keys: tuple[str, ...]) -> dict[str, Any]:
+        """Wrapper defaults (for ``keys``) under the call's params; ``None`` values dropped."""
+        out: dict[str, Any] = {k: getattr(self, k) for k in keys}
+        out.update({k: v for k, v in params.items() if v is not None})
+        return {k: v for k, v in out.items() if v is not None}
+
+    def answer(self, query: str, **params: Any) -> AnswerResponse:
+        """Typed ``/v1/answer`` call: a cited answer from live Google results."""
+        return self.client.answer(query, **self._defaults(params, _ANSWER_DEFAULTS))
+
+    def research(self, input: str, **params: Any) -> TaskCreated:
+        """Start a ``/v1/research`` task."""
+        return self.client.research(input, **self._defaults(params, _RESEARCH_DEFAULTS))
+
+    def get_research(self, id: str) -> ResearchTask:
+        return self.client.get_research(id)
+
+    def wait_research(self, id: str, timeout: float = 900.0) -> ResearchTask:
+        """Poll a research task until it completed, failed or was canceled."""
+        return self.client.wait_research(id, timeout=timeout)
+
     # Async ----------------------------------------------------------------
 
     async def amarkdown(self, query: str, endpoint: str = "search", **params: Any) -> str:
@@ -149,3 +170,19 @@ class SerpKiteAPIWrapper(BaseModel):
 
     async def awebpage(self, url: str, include_html: bool = False) -> WebpageResponse:
         return await self.async_client.webpage(url, include_html=include_html)
+
+    async def aanswer(self, query: str, **params: Any) -> AnswerResponse:
+        return await self.async_client.answer(query, **self._defaults(params, _ANSWER_DEFAULTS))
+
+    async def aresearch(self, input: str, **params: Any) -> TaskCreated:
+        return await self.async_client.research(input, **self._defaults(params, _RESEARCH_DEFAULTS))
+
+    async def aget_research(self, id: str) -> ResearchTask:
+        return await self.async_client.get_research(id)
+
+    async def await_research(self, id: str, timeout: float = 900.0) -> ResearchTask:
+        return await self.async_client.wait_research(id, timeout=timeout)
+
+
+_ANSWER_DEFAULTS = ("country", "language", "location", "engine")
+_RESEARCH_DEFAULTS = ("country", "language")

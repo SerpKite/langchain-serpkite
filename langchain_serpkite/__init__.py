@@ -5,16 +5,28 @@ from importlib import metadata
 from langchain_serpkite._utilities import SerpKiteAPIWrapper
 from langchain_serpkite.document_loaders import SerpKiteWebpageLoader
 from langchain_serpkite.retrievers import SerpKiteRetriever
-from langchain_serpkite.tools import SerpKiteSearch, SerpKiteSearchInput, SerpKiteSearchResults
+from langchain_serpkite.tools import (
+    SerpKiteAnswer,
+    SerpKiteAnswerInput,
+    SerpKiteResearch,
+    SerpKiteResearchInput,
+    SerpKiteSearch,
+    SerpKiteSearchInput,
+    SerpKiteSearchResults,
+)
 
 try:
     __version__ = metadata.version(__package__ or __name__)
 except metadata.PackageNotFoundError:  # pragma: no cover - source checkout without install
-    __version__ = "0.2.1"
+    __version__ = "0.3.0"
 del metadata
 
 __all__ = [
     "SerpKiteAPIWrapper",
+    "SerpKiteAnswer",
+    "SerpKiteAnswerInput",
+    "SerpKiteResearch",
+    "SerpKiteResearchInput",
     "SerpKiteRetriever",
     "SerpKiteSearch",
     "SerpKiteSearchInput",
