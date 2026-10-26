@@ -20,6 +20,7 @@ classifiers = [
 ]
 dependencies = [
   "langchain-core>=0.3,<2",
+  "pydantic>=2.6",
   "serpkite>=0.7.0",
 ]
 
