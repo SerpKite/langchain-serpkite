@@ -98,7 +98,7 @@ tools = [SerpKiteAssistant(assistant=a) for a in ("chatgpt", "gemini", "copilot"
   and how each `track` term was mentioned. The `ToolMessage.artifact` is the full
   `serpkite.types.AssistantResponse` (`sources`, `search_queries`, `products`, `places`,
   `mentions`).
-- Answers take 10-90 s. Prices per answer: ChatGPT 5, Gemini 5, Copilot 3, AI Mode 3, Brave AI 2
+- Answers take 10-90 s. Prices per answer: ChatGPT 4, Gemini 3, Copilot 3, AI Mode 2, Brave AI 2
   credits; failed and empty answers are free.
 
 ## Agent (LangChain / LangGraph)

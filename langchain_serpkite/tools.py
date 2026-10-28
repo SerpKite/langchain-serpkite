@@ -471,7 +471,7 @@ class SerpKiteAssistant(BaseTool):
     products and, with ``track``, how each brand or domain was mentioned. ``response_format`` is
     ``content_and_artifact``: the artifact is the full :class:`serpkite.types.AssistantResponse`
     (``sources``, ``search_queries``, ``products``, ``places``, ``mentions``). Prices per answer:
-    ChatGPT 5, Gemini 5, Copilot 3, AI Mode 3, Brave AI 2 credits; failed and empty answers are
+    ChatGPT 4, Gemini 3, Copilot 3, AI Mode 2, Brave AI 2 credits; failed and empty answers are
     free (https://serpkite.com/pricing).
 
     Instantiate:

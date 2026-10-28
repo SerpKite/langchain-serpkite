@@ -20,7 +20,7 @@ from langchain_serpkite.tools import (
 try:
     __version__ = metadata.version(__package__ or __name__)
 except metadata.PackageNotFoundError:  # pragma: no cover - source checkout without install
-    __version__ = "0.4.0"
+    __version__ = "0.4.1"
 del metadata
 
 __all__ = [
