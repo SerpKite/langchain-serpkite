@@ -163,8 +163,8 @@ Each page costs 1 credit. Pass `include_html=True` to also get the raw HTML in
 
 ## Search engines & fallback
 
-By default every request is answered by Google only (`engine="google"`); SerpKite already fails
-over across its own proxy pools. Opt in to other providers with `engine` on a tool, the retriever
+By default every request is answered by Google only (`engine="google"`); SerpKite already
+retries Google internally. Opt in to other providers with `engine` on a tool, the retriever
 or the shared wrapper (you set it, never the model):
 
 ```python
