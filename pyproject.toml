@@ -1,7 +1,7 @@
 [project]
 name = "langchain-serpkite"
-version = "0.3.0"
-description = "LangChain integration for SerpKite, the Google search API built for AI agents: search, cited answer and research tools, a retriever and a webpage loader."
+version = "0.4.0"
+description = "LangChain integration for SerpKite, the Google search API built for AI agents: search, cited answer, research and AI assistant (ChatGPT, Gemini, Copilot, AI Mode, Brave AI) tools, a retriever and a webpage loader."
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
@@ -21,7 +21,7 @@ classifiers = [
 dependencies = [
   "langchain-core>=0.3,<2",
   "pydantic>=2.6",
-  "serpkite>=0.7.0",
+  "serpkite>=0.8.0",
 ]
 
 [project.urls]

@@ -9,6 +9,7 @@ agents. The package gives you:
 | `SerpKiteSearchResults` | Tool (`serpkite_search_results_json`) that returns a list of result dicts (title, link, domain, snippet, …) |
 | `SerpKiteAnswer` | Tool (`serpkite_answer`) that returns a cited answer from live Google results, with the numbered sources |
 | `SerpKiteResearch` | Tool (`serpkite_research`) that runs a deep-research task and returns its cited Markdown report |
+| `SerpKiteAssistant` | Tool (`serpkite_chatgpt`, `serpkite_gemini`, …) that asks ChatGPT, Gemini, Copilot, Google AI Mode or Brave AI and returns its answer, sources, products and brand `mentions` |
 | `SerpKiteRetriever` | Retriever that returns Google results as `Document`s, optionally with full page Markdown |
 | `SerpKiteWebpageLoader` | Document loader that fetches any public URL as clean Markdown |
 | `SerpKiteAPIWrapper` | Holds the API key and the sync and async SerpKite clients |
@@ -68,6 +69,37 @@ print(research.invoke({"query": "compare managed Postgres vector search options"
 - When the model fails, `SerpKiteAnswer` raises `serpkite.APIError` with code `ai_unavailable`
   and `SerpKiteResearch` returns the failed task's error; neither is charged for the model part.
   Prices: [serpkite.com/pricing](https://serpkite.com/pricing).
+
+## AI assistants: ChatGPT, Gemini, Copilot, AI Mode, Brave AI
+
+```python
+from langchain_serpkite import SerpKiteAssistant
+
+chatgpt = SerpKiteAssistant(assistant="chatgpt", track=["hubspot.com", "Pipedrive"])
+print(chatgpt.invoke({"prompt": "best crm for a 10-person startup"}))
+# HubSpot … [1](https://hubspot.com/…)
+#
+# Sources:
+# [1] HubSpot - https://hubspot.com/…
+#
+# Mentions:
+# - hubspot.com: named in the text; cited; sources 1
+# - Pipedrive: not mentioned
+
+gemini = SerpKiteAssistant(assistant="gemini", country="de", language="de")  # serpkite_gemini
+tools = [SerpKiteAssistant(assistant=a) for a in ("chatgpt", "gemini", "copilot", "ai_mode", "brave_ai")]
+```
+
+- `assistant` is `chatgpt` (default), `gemini`, `copilot`, `ai_mode` or `brave_ai`; it sets the
+  tool's default `name` (`serpkite_<assistant>`) and description. The model only sets `prompt`.
+- On the tool: `track` (brands and domains to check each answer for, up to 20), `country`,
+  `language` (not ChatGPT) and `web_search` (ChatGPT only; `False` lets ChatGPT decide).
+- The content is the answer as Markdown with `[n](link)` citations, then its sources, products
+  and how each `track` term was mentioned. The `ToolMessage.artifact` is the full
+  `serpkite.types.AssistantResponse` (`sources`, `search_queries`, `products`, `places`,
+  `mentions`).
+- Answers take 10-90 s. Prices per answer: ChatGPT 5, Gemini 5, Copilot 3, AI Mode 3, Brave AI 2
+  credits; failed and empty answers are free.
 
 ## Agent (LangChain / LangGraph)
 

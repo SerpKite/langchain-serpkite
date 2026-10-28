@@ -8,6 +8,8 @@ from langchain_serpkite.retrievers import SerpKiteRetriever
 from langchain_serpkite.tools import (
     SerpKiteAnswer,
     SerpKiteAnswerInput,
+    SerpKiteAssistant,
+    SerpKiteAssistantInput,
     SerpKiteResearch,
     SerpKiteResearchInput,
     SerpKiteSearch,
@@ -18,13 +20,15 @@ from langchain_serpkite.tools import (
 try:
     __version__ = metadata.version(__package__ or __name__)
 except metadata.PackageNotFoundError:  # pragma: no cover - source checkout without install
-    __version__ = "0.3.0"
+    __version__ = "0.4.0"
 del metadata
 
 __all__ = [
     "SerpKiteAPIWrapper",
     "SerpKiteAnswer",
     "SerpKiteAnswerInput",
+    "SerpKiteAssistant",
+    "SerpKiteAssistantInput",
     "SerpKiteResearch",
     "SerpKiteResearchInput",
     "SerpKiteRetriever",

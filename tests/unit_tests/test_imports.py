@@ -4,6 +4,8 @@ EXPECTED_ALL = [
     "SerpKiteAPIWrapper",
     "SerpKiteAnswer",
     "SerpKiteAnswerInput",
+    "SerpKiteAssistant",
+    "SerpKiteAssistantInput",
     "SerpKiteResearch",
     "SerpKiteResearchInput",
     "SerpKiteRetriever",

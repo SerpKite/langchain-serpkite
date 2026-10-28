@@ -2,14 +2,26 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional, Union
+from typing import Any, Literal, Optional, Union
 
 from langchain_core.utils import secret_from_env
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, SecretStr
 from serpkite import AsyncSerpKite, SerpKite
-from serpkite.types import AnswerResponse, ResearchTask, SearchResponse, TaskCreated, WebpageResponse
+from serpkite.types import (
+    AnswerResponse,
+    AssistantResponse,
+    ResearchTask,
+    SearchResponse,
+    TaskCreated,
+    WebpageResponse,
+)
 
-__all__ = ["SerpKiteAPIWrapper"]
+__all__ = ["ASSISTANTS", "Assistant", "SerpKiteAPIWrapper"]
+
+Assistant = Literal["chatgpt", "gemini", "copilot", "ai_mode", "brave_ai"]
+"""The AI assistants SerpKite asks: ``/v1/chatgpt``, ``/v1/gemini``, ``/v1/copilot``,
+``/v1/ai_mode`` and ``/v1/brave_ai``."""
+ASSISTANTS: tuple[Assistant, ...] = ("chatgpt", "gemini", "copilot", "ai_mode", "brave_ai")
 
 VERTICALS = frozenset(
     {
@@ -150,6 +162,13 @@ class SerpKiteAPIWrapper(BaseModel):
     def get_research(self, id: str) -> ResearchTask:
         return self.client.get_research(id)
 
+    def assistant(self, assistant: Assistant, prompt: str, **params: Any) -> AssistantResponse:
+        """Typed ``/v1/<assistant>`` call: what ChatGPT, Gemini, Copilot, AI Mode or Brave AI
+        answers to ``prompt``, with its sources, products and (with ``track``) ``mentions``."""
+        method = getattr(self.client, normalize_assistant(assistant))
+        result: AssistantResponse = method(prompt, **self._assistant_params(assistant, params))
+        return result
+
     def wait_research(self, id: str, timeout: float = 900.0) -> ResearchTask:
         """Poll a research task until it completed, failed or was canceled."""
         return self.client.wait_research(id, timeout=timeout)
@@ -177,11 +196,33 @@ class SerpKiteAPIWrapper(BaseModel):
     async def aresearch(self, input: str, **params: Any) -> TaskCreated:
         return await self.async_client.research(input, **self._defaults(params, _RESEARCH_DEFAULTS))
 
+    async def aassistant(self, assistant: Assistant, prompt: str, **params: Any) -> AssistantResponse:
+        method = getattr(self.async_client, normalize_assistant(assistant))
+        result: AssistantResponse = await method(prompt, **self._assistant_params(assistant, params))
+        return result
+
     async def aget_research(self, id: str) -> ResearchTask:
         return await self.async_client.get_research(id)
 
     async def await_research(self, id: str, timeout: float = 900.0) -> ResearchTask:
         return await self.async_client.wait_research(id, timeout=timeout)
+
+    def _assistant_params(self, assistant: str, params: dict[str, Any]) -> dict[str, Any]:
+        # ChatGPT takes no language and the others no web_search: the API answers 400 to either.
+        if assistant == "chatgpt":
+            out = self._defaults(params, ("country",))
+            out.pop("language", None)
+        else:
+            out = self._defaults(params, ("country", "language"))
+            out.pop("web_search", None)
+        return out
+
+
+def normalize_assistant(assistant: str) -> Assistant:
+    for a in ASSISTANTS:
+        if a == assistant:
+            return a
+    raise ValueError(f"unknown SerpKite assistant {assistant!r}; use one of {', '.join(ASSISTANTS)}")
 
 
 _ANSWER_DEFAULTS = ("country", "language", "location", "engine")

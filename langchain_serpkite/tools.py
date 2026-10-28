@@ -7,13 +7,15 @@ from typing import Any, Literal, Optional, Union
 from langchain_core.callbacks import AsyncCallbackManagerForToolRun, CallbackManagerForToolRun
 from langchain_core.tools import BaseTool
 from pydantic import BaseModel, Field, field_validator, model_validator
-from serpkite.types import AnswerResponse, ResearchTask
+from serpkite.types import AnswerResponse, AssistantResponse, ResearchTask
 
-from ._utilities import SerpKiteAPIWrapper, normalize_endpoint
+from ._utilities import Assistant, SerpKiteAPIWrapper, normalize_endpoint
 
 __all__ = [
     "SerpKiteAnswer",
     "SerpKiteAnswerInput",
+    "SerpKiteAssistant",
+    "SerpKiteAssistantInput",
     "SerpKiteResearch",
     "SerpKiteResearchInput",
     "SerpKiteSearch",
@@ -395,3 +397,154 @@ class SerpKiteResearch(BaseTool):
         except TimeoutError:
             done = await self.api_wrapper.aget_research(str(task.id))
         return format_research(done), done
+
+
+# ── AI assistants: ChatGPT, Gemini, Copilot, AI Mode, Brave AI ───────────────
+
+
+class SerpKiteAssistantInput(BaseModel):
+    """Input for :class:`SerpKiteAssistant`."""
+
+    prompt: str = Field(description="The message to the assistant, as a user would type it.")
+
+
+_ASSISTANT_INFO: dict[str, tuple[str, str]] = {
+    "chatgpt": (
+        "ChatGPT",
+        "Ask ChatGPT (chatgpt.com, logged out, searching the web) and get its answer with the sources "
+        "it cited and the products and places it showed: what ChatGPT tells people. Takes 10-90 s.",
+    ),
+    "gemini": (
+        "Gemini",
+        "Ask Google Gemini (gemini.google.com, logged out) and get its answer with the sources it "
+        "grounded on: what Gemini tells people. Takes 10-90 s.",
+    ),
+    "copilot": (
+        "Copilot",
+        "Ask Microsoft Copilot Search on Bing and get its answer with cited sources and products. "
+        "Takes 15-40 s.",
+    ),
+    "ai_mode": (
+        "Google AI Mode",
+        "Ask Google AI Mode and get its answer with cited sources and products. Takes 10-45 s.",
+    ),
+    "brave_ai": (
+        "Brave AI",
+        "Ask Brave Search's AI answer and get it with cited sources, the searches it ran and products. "
+        "Takes about 10 s.",
+    ),
+}
+
+
+def format_assistant(res: AssistantResponse) -> str:
+    """The answer (Markdown with ``[n](link)`` citations), its numbered sources, products and
+    the mentions of the tracked terms."""
+    lines = [res.markdown or res.text or "The assistant gave no answer."]
+    if res.sources:
+        lines += ["", "Sources:"]
+        lines += [
+            f"[{s.position}] {s.title or s.domain} - {s.link}{'' if s.cited else ' (listed, not cited)'}"
+            for s in res.sources
+        ]
+    if res.products:
+        lines += ["", "Products:"]
+        for p in res.products:
+            extra = ", ".join(x for x in (p.price, p.merchant) if x)
+            lines.append(f"{p.position}. {p.title}" + (f" ({extra})" if extra else ""))
+    if res.mentions:
+        lines += ["", "Mentions:"]
+        for m in res.mentions:
+            how = [w for w, on in (("named in the text", m.mentioned), ("cited", m.cited)) if on]
+            if m.sources:
+                how.append("sources " + ", ".join(str(n) for n in m.sources))
+            if m.products:
+                how.append("products " + ", ".join(str(n) for n in m.products))
+            lines.append(f"- {m.term}: {'; '.join(how) or 'not mentioned'}")
+    return "\n".join(lines)
+
+
+class SerpKiteAssistant(BaseTool):
+    """What an AI assistant answers, via SerpKite: ChatGPT (``/v1/chatgpt``), Gemini, Copilot
+    Search, Google AI Mode or Brave AI, asked as a logged-out user.
+
+    Returns the answer (Markdown with ``[n](link)`` citations) followed by its numbered sources,
+    products and, with ``track``, how each brand or domain was mentioned. ``response_format`` is
+    ``content_and_artifact``: the artifact is the full :class:`serpkite.types.AssistantResponse`
+    (``sources``, ``search_queries``, ``products``, ``places``, ``mentions``). Prices per answer:
+    ChatGPT 5, Gemini 5, Copilot 3, AI Mode 3, Brave AI 2 credits; failed and empty answers are
+    free (https://serpkite.com/pricing).
+
+    Instantiate:
+        .. code-block:: python
+
+            from langchain_serpkite import SerpKiteAssistant
+
+            chatgpt = SerpKiteAssistant(assistant="chatgpt", track=["hubspot.com", "Pipedrive"])
+            gemini = SerpKiteAssistant(assistant="gemini", country="de")
+
+    Invoke:
+        .. code-block:: python
+
+            chatgpt.invoke({"prompt": "best crm for a 10-person startup"})
+    """
+
+    name: str = "serpkite_chatgpt"
+    description: str = _ASSISTANT_INFO["chatgpt"][1]
+    args_schema: type[BaseModel] = SerpKiteAssistantInput
+    response_format: Literal["content", "content_and_artifact"] = "content_and_artifact"
+
+    api_wrapper: SerpKiteAPIWrapper = Field(default_factory=SerpKiteAPIWrapper)
+    """Holds the API key and HTTP clients (``SERPKITE_API_KEY`` by default)."""
+    assistant: Assistant = "chatgpt"
+    """Which assistant to ask: chatgpt, gemini, copilot, ai_mode or brave_ai. Sets the default
+    ``name`` (``serpkite_<assistant>``) and ``description``."""
+    track: Optional[list[str]] = None
+    """Brands (``"Acme"``) and domains (``"acme.com"``) to check each answer for (up to 20)."""
+    country: Optional[str] = None
+    """Ask from this country (e.g. ``de``). Defaults to ``api_wrapper.country``."""
+    language: Optional[str] = None
+    """Interface language (not ChatGPT). Defaults to ``api_wrapper.language``."""
+    web_search: Optional[bool] = None
+    """ChatGPT only: ``False`` lets ChatGPT decide whether to search (default: it searches)."""
+
+    @model_validator(mode="before")
+    @classmethod
+    def _build_wrapper(cls, values: Any) -> Any:
+        values = _wrapper_from_kwargs(values)
+        if isinstance(values, dict):
+            assistant = values.get("assistant", "chatgpt")
+            if assistant in _ASSISTANT_INFO:
+                values.setdefault("name", f"serpkite_{assistant}")
+                values.setdefault(
+                    "description",
+                    _ASSISTANT_INFO[assistant][1] + " Input is the prompt, as a user would type it.",
+                )
+        return values
+
+    @model_validator(mode="after")
+    def _check_options(self) -> SerpKiteAssistant:
+        if self.web_search is not None and self.assistant != "chatgpt":
+            raise ValueError("web_search is only supported by assistant='chatgpt'")
+        if self.language is not None and self.assistant == "chatgpt":
+            raise ValueError("language is not supported by assistant='chatgpt'")
+        return self
+
+    def _params(self) -> dict[str, Any]:
+        return {
+            "track": self.track,
+            "country": self.country,
+            "language": self.language,
+            "web_search": self.web_search,
+        }
+
+    def _run(
+        self, prompt: str, run_manager: Optional[CallbackManagerForToolRun] = None
+    ) -> tuple[str, AssistantResponse]:
+        res = self.api_wrapper.assistant(self.assistant, prompt, **self._params())
+        return format_assistant(res), res
+
+    async def _arun(
+        self, prompt: str, run_manager: Optional[AsyncCallbackManagerForToolRun] = None
+    ) -> tuple[str, AssistantResponse]:
+        res = await self.api_wrapper.aassistant(self.assistant, prompt, **self._params())
+        return format_assistant(res), res
